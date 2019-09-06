@@ -4,23 +4,31 @@ import sys, threading, os
 import can
 
 lastCommand = "stop"
+EXCHANGE_TIMEOUT = 60
 newlog = -1
 
-def rx():
-    global lastCommand
-    while True:
+def rxcmd(sock, cmd):
+    try:
         data_bytes, address = sock.recvfrom(64)
-        if data_bytes is not None:
-            lastCommand = data_bytes.decode("utf-8")
+    except Exception as e:
+        print(e)
+        return False
+    if data_bytes is None or data_bytes.decode("utf-8") != cmd:
+        print("error: didn't receive '{}' command in time".format(cmd))   
+        return False
+    sock.sendto(bytes("ok", "utf-8"), address)
+    return True
 
-def main():
+def main(sock):
     global lastCommand
     global newlog
-    while lastCommand == "start":
+    while 1:
+        print("starting")
         with open("/var/lib/cloud9/crackerLogs/seedkeylog", "r") as f:
             if newlog == -1:
                 for line in f:
                     newlog += 1
+        while not rxcmd(sock, "proceed"): continue
         with open("/var/lib/cloud9/crackerLogs/seedkeylog", "a+") as f:
             for s in ["100","62C 01 40 00 00 00 00 00 00","13FFE060","10244060 00","102C6060 00 33 0B 00 96 87","103BC060 00","103D6060 01","10444060 00 00","10448060 00 00 00 00","1045C060 40","10774060 00","1084A060 05","10A04060 00","10ACE060 1E 00 00 00 00 00 00 00","103DA060 00","10812060 00","10B0A060 00 1E 04","13FFE060","1084A060 05","10244060 02","103D6060 01","10ACE060 1E 00 10 00 00 00 00 00","10B0A060 00 2B 04","10ACE060 2B 00 00 00 00 00 00 00","10B0A060 00 16 04","10B0A060 00 19 04","10B0A060 00 0E 04","13FFE060","13FFE060"]:
                 c = s.split(" ")
@@ -37,14 +45,14 @@ def main():
             line = doExchange()
             if line is not None:
                 f.write(line)
-    time.sleep(0.1)
 
 def doExchange():
     global lastCommand
     global newlog
     noSeed = True
     i = 0
-    while noSeed and lastCommand == "start":
+    start = time.time()
+    while noSeed:
         i+=1
         try:
             msg = bus.recv(0.5)
@@ -82,12 +90,14 @@ def doExchange():
             channel="can0",
         )
         bus.send(msg)
-    return None
+        if time.time() - start > EXCHANGE_TIMEOUT:
+            return None
  
 if __name__ == "__main__":
     bus = can.interface.Bus(bustype="socketcan", channel="can0")
     path = "/var/lib/cloud9/crackerLogs/"
-    address = ("192.168.7.2", 11000)
+    address = ("0.0.0.0", 11000)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(60)
     sock.bind(address)
-    main()
+    main(sock)
