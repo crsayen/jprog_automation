@@ -53,12 +53,7 @@ def restart(kill=True):
         os.system("taskkill /f /im  JProg_7361.exe")
         if rcvd == "pause":
             return
-    #keyDown("winleft"); press("d"); keyUp("winleft")
-    #if rcvd == "pause":
-     #       return
-
     subprocess.Popen(["C:/Users/model/Desktop/7361-NJ-Nissan_Kiks/JProg_7361.exe"])
-
     for t in [("interface", 10, False, True),("cleartoship", 10, False, False)]:
         print("trying to click {}".format(t[0]))
         if rcvd == "pause":
@@ -66,12 +61,25 @@ def restart(kill=True):
             return
         click(t[0], timeout=t[1], double=t[2], alt=t[3])
     
+def checkok(sock):
+    sock.sendto(bytes("proceed", "utf-8"), address)
+    for i in range(50):
+        if rcvd in ["ok", "pause", "resume"]: 
+            break
+        time.sleep(0.1)
+    if rcvd in ["pause", "resume"]:
+        return False
+    rcvd = ""
+    return True
+
 def main(sock):
     global rcvd
     restart(kill=False)
     while 1:
-        while rcvd == "pause":
-            time.sleep(0.1)
+        if rcvd == "pause":
+            print("paused")
+            while rcvd == "pause":
+                time.sleep(0.1)
         for i, step in enumerate([
             ("start",10, False),
             ("no",10, False),
@@ -84,15 +92,10 @@ def main(sock):
                 break
             print(step[0])
             if i == 2:
-                sock.sendto(bytes("proceed", "utf-8"), address)
-                for i in range(50):
-                    if rcvd == "ok": 
-                        break
-                    time.sleep(0.1)
-                rcvd = "" if rcvd == "ok" else "restart"
+                if not checkok(sock): break
             result = click(step[0], timeout=step[1], alt=step[2])
             print("click: {}: result: {}".format(step[0], result))
-            if rcvd == "restart" or not result:
+            if not result:
                 restart()
                 break
 
