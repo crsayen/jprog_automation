@@ -102,7 +102,8 @@ def doExchange():
             continue
         print("received: {}".format(msg.data.hex()))
         if msg.data.hex() == '0227010000000000':
-            seed = hex(random.randint(10000, 65000))[2:]
+            floor = 56000 if random.randint(0,10) > 7 else 148
+            seed = hex(random.randint(floor, 655534))[2:]
             while len(seed) < 4:
                 seed = '0' + seed
             print("seed: {}".format(seed))
